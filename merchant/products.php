@@ -251,6 +251,9 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                         <?php echo $pageTitle; ?>
                     </h1>
                     <?php if ($action === 'list'): ?>
+                    <a href="/e-commerce/merchant/inventory_report.php" class="btn btn-info me-2">
+                        <i class="fas fa-file-alt me-2"></i>Inventory Report
+                    </a>
                     <a href="/e-commerce/merchant/products.php?action=add" class="btn btn-primary">
                         <i class="fas fa-plus me-2"></i>Add New Product
                     </a>

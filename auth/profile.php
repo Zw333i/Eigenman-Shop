@@ -126,16 +126,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         }
     }
     
-    // If no errors, update password
     if (empty($errors)) {
-        // Hash the new password
         $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
         
         $updateStmt = $conn->prepare("UPDATE User SET password = ? WHERE userId = ?");
         $updateStmt->bind_param("si", $hashedPassword, $userId);
         
         if ($updateStmt->execute()) {
-            // Update activity log
             $activity = "Changed password on " . date('Y-m-d H:i:s');
             $activityStmt = $conn->prepare("UPDATE User SET userActivities = CONCAT(userActivities, '\n', ?) WHERE userId = ?");
             $activityStmt->bind_param("si", $activity, $userId);
@@ -153,9 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
     }
 }
 
-// Process form submission for store details update (merchants only)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_store']) && $role === 'merchant') {
-    // Get form data
     $storeName = trim($_POST['storeName']);
     
     // Validate inputs
@@ -165,7 +160,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_store']) && $r
         $errors[] = "Store name is required";
     }
     
-    // If no errors, update store details
     if (empty($errors)) {
         $updateStmt = $conn->prepare("UPDATE Merchant SET storeName = ? WHERE userId = ?");
         $updateStmt->bind_param("si", $storeName, $userId);
@@ -197,35 +191,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_store']) && $r
     }
 }
 
-// Process profile picture upload
+//  profile picture upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture'])) {
-    // Check if file was uploaded without errors
     if (isset($_FILES['profilePicture']) && $_FILES['profilePicture']['error'] === 0) {
         $allowed = ['jpg', 'jpeg', 'png', 'gif'];
         $filename = $_FILES['profilePicture']['name'];
         $fileExt = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         
-        // Validate file extension
         if (in_array($fileExt, $allowed)) {
-            // Create uploads directory if it doesn't exist
             $uploadDir = '../assets/images/profiles/';
             if (!file_exists($uploadDir)) {
                 mkdir($uploadDir, 0777, true);
             }
             
-            // Generate a unique filename
             $newFilename = 'user_' . $userId . '_' . time() . '.' . $fileExt;
             $destination = $uploadDir . $newFilename;
             
-            // Move the uploaded file
             if (move_uploaded_file($_FILES['profilePicture']['tmp_name'], $destination)) {
-                // Update database with new profile picture path
                 $relativePath = 'assets/images/profiles/' . $newFilename;
                 $updateStmt = $conn->prepare("UPDATE User SET profilePicture = ? WHERE userId = ?");
                 $updateStmt->bind_param("si", $relativePath, $userId);
                 
                 if ($updateStmt->execute()) {
-                    // Update activity log
                     $activity = "Updated profile picture on " . date('Y-m-d H:i:s');
                     $activityStmt = $conn->prepare("UPDATE User SET userActivities = CONCAT(userActivities, '\n', ?) WHERE userId = ?");
                     $activityStmt->bind_param("si", $activity, $userId);
@@ -234,7 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture'])) {
                     
                     $successMsg = "Profile picture updated successfully";
                     
-                    // Refresh user data
                     $stmt = $conn->prepare("SELECT * FROM User WHERE userId = ?");
                     $stmt->bind_param("i", $userId);
                     $stmt->execute();
@@ -257,15 +243,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_picture'])) {
     }
 }
 
-// Include header
 include_once '../includes/header.php';
 ?>
 
-<!-- Include Bootstrap 5 CSS and JavaScript -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-<!-- Include Bootstrap Icons -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-<!-- Include Animate.css for animations -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 
 <style>
@@ -468,7 +450,6 @@ include_once '../includes/header.php';
                 </div>
             </div>
             
-            <!-- User Stats Card -->
             <div class="profile-card">
                 <div class="card-header">
                     <h4 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Stats</h4>
@@ -659,7 +640,6 @@ include_once '../includes/header.php';
             }, index * 150);
         });
         
-        // Show selected filename
         const fileInput = document.getElementById('profilePicture');
         const fileDisplay = document.getElementById('selected-file');
         

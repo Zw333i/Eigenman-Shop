@@ -1,5 +1,7 @@
 <?php
 // merchant/dashboard.php
+
+
 session_start();
 
 if (!isset($_SESSION['userId']) || $_SESSION['role'] !== 'merchant') {
@@ -62,12 +64,13 @@ if ($pendingOrdersResult && $pendingOrdersResult->num_rows > 0) {
     $pendingOrders = $row['count'];
 }
 
-$totalSalesQuery = "SELECT SUM(totalPrice) as total FROM Orders WHERE merchantId = $userId";
+// Updated total sales query to use COALESCE and ensure we get 0 when there are no sales
+$totalSalesQuery = "SELECT COALESCE(SUM(totalPrice), 0) as total FROM Orders WHERE merchantId = $userId";
 $totalSalesResult = $conn->query($totalSalesQuery);
 $totalSales = 0;
 if ($totalSalesResult && $totalSalesResult->num_rows > 0) {
     $row = $totalSalesResult->fetch_assoc();
-    $totalSales = $row['total'] ?: 0;
+    $totalSales = $row['total'];
 }
 
 $recentOrdersQuery = "SELECT o.*, i.itemName, u.firstname, u.lastname 
@@ -135,13 +138,15 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                         </div>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <div class="card h-100 shadow-sm">
-                            <div class="card-body text-center">
-                                <i class="fas fa-peso-sign text-warning mb-2" style="font-size: 2rem;"></i>
-                                <h5 class="stat-value">₱<?php echo number_format($totalSales, 2); ?></h5>
-                                <p class="stat-label">Total Sales</p>
+                        <a href="/e-commerce/merchant/sales_report.php" class="text-decoration-none">
+                            <div class="card h-100 shadow-sm sales-card">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-peso-sign text-warning mb-2" style="font-size: 2rem;"></i>
+                                    <h5 class="stat-value">₱<?php echo number_format($totalSales, 2); ?></h5>
+                                    <p class="stat-label">Total Sales</p>
+                                </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
                 </div>
                 
@@ -266,6 +271,15 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
 .badge {
     font-weight: 500;
     padding: 0.5em 0.75em;
+}
+
+.sales-card {
+    transition: all 0.3s ease;
+}
+
+.sales-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
 }
 </style>
 

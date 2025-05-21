@@ -110,7 +110,7 @@ $stmt->close();
 if (isset($_SERVER['HTTP_REFERER']) && strpos($_SERVER['HTTP_REFERER'], 'details.php') !== false) {
     header('Location: ../product/details.php?id=' . $itemId);
 } else {
-    header('Location: ../cart/index.php');
+    header('Location: ../product/index.php');
 }
 exit;
 ?>

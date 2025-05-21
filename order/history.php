@@ -20,7 +20,8 @@ $user_id = $_SESSION['userId'];
 $stmt = $conn->prepare("
     SELECT o.orderId, o.orderDate, o.totalPrice, o.toPay, o.toShip, 
            o.toReceive, o.toRate, o.quantity, o.modeOfPayment, o.address,
-           i.itemName, i.itemPrice, i.picture, m.storeName
+           i.itemName, i.itemPrice, i.picture, m.storeName,
+           o.rating, o.review
     FROM Orders o
     INNER JOIN Item i ON o.itemId = i.itemId
     INNER JOIN Merchant m ON o.merchantId = m.merchantId
@@ -173,9 +174,16 @@ include_once '../includes/header.php';
                                                     } elseif ($order['toRate']) {
                                                         $status = 'To Rate';
                                                         $status_class = 'bg-success';
-                                                    } else {
+                                                    } elseif ($order['rating'] !== null || $order['review'] !== null) {
+                                                        // If there's a rating or review, it's completed
                                                         $status = 'Completed';
                                                         $status_class = 'bg-success';
+                                                    } elseif ($order['toPay'] == 0 && $order['toShip'] == 0 && $order['toReceive'] == 0 && $order['toRate'] == 0) {
+                                                        $status = 'Cancelled';
+                                                        $status_class = 'bg-secondary';
+                                                    } else {
+                                                        $status = 'Processing';
+                                                        $status_class = 'bg-info';
                                                     }
                                                 ?>
                                                 <span class="badge <?php echo $status_class; ?>"><?php echo $status; ?></span>

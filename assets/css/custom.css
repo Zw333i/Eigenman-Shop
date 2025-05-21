@@ -34,30 +34,3 @@
         opacity: 1;
     }
 }
-
-/* Splash Screen Animation JavaScript */
-/*
-document.addEventListener('DOMContentLoaded', function() {
-    // Create splash screen element
-    const splashScreen = document.createElement('div');
-    splashScreen.id = 'splash-screen';
-    
-    // Create logo element
-    const logo = document.createElement('img');
-    logo.src = 'downloads/eigenman_logo.png';
-    logo.alt = 'Eigenman Logo';
-    logo.className = 'splash-logo';
-    
-    // Append logo to splash screen
-    splashScreen.appendChild(logo);
-    
-    // Append splash screen to body
-    document.body.appendChild(splashScreen);
-    
-    // Hide splash screen after 2.5 seconds
-    setTimeout(function() {
-        splashScreen.style.opacity = '0';
-        
-        // Remove from DOM after fade out animation completes
-        setTimeout(function() {
-            splashScreen.style.display = 'none';

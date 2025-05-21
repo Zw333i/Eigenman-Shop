@@ -12,7 +12,6 @@ if (!isset($_SESSION['user_id'])) {
 // Include database connection
 require_once '../config/database.php';
 
-// Get the product ID
 $productId = isset($_GET['product_id']) ? intval($_GET['product_id']) : 0;
 
 // Validate product ID

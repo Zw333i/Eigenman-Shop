@@ -1,4 +1,4 @@
-/* Splash Screen Styles */
+
 #splash-screen {
     position: fixed;
     top: 0;
@@ -26,7 +26,6 @@
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* Add transitions when splash screen disappears */
 .content-loaded .hero-section {
     animation: fadeInUp 0.8s ease forwards;
 }

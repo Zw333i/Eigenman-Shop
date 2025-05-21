@@ -1,10 +1,8 @@
-// Splash Screen with shorter timeout and error handling
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Make sure the splash screen exists
     const splashScreen = document.getElementById('splash-screen');
     
     if (splashScreen) {
-        // Set a shorter timeout (1 second instead of 2)
         setTimeout(function() {
             splashScreen.style.opacity = '0';
             
@@ -12,15 +10,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 splashScreen.style.display = 'none';
                 document.body.classList.add('content-loaded');
             }, 500);
-        }, 1000); // Shortened from 2000 to 1000
+        }, 1000); 
     }
 
-    // Additional initialization for other elements
     initBackToTop();
     loadFeaturedProducts();
 });
 
-// Back to top button functionality
 function initBackToTop() {
     window.addEventListener('scroll', function() {
         const backToTopButton = document.getElementById('back-to-top');
@@ -45,15 +41,12 @@ function initBackToTop() {
     }
 }
 
-// Load featured products
 function loadFeaturedProducts() {
     const featuredProductsContainer = document.getElementById('featured-products');
     
     if (featuredProductsContainer) {
-        // Clear any existing content
         featuredProductsContainer.innerHTML = '';
         
-        // Sample products data - this would come from PHP in real implementation
         const sampleProducts = [
             {
                 id: 1,

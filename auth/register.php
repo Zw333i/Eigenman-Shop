@@ -4,18 +4,14 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Check if user is already logged in
 if (isset($_SESSION['userId'])) {
-    // Redirect to the home page
     header("Location: ../index.php");
     exit();
 }
 
-// Include necessary files
 require_once '../includes/functions.php';
 require_once '../config/database.php';
 
-// Initialize variables
 $username = "";
 $firstname = "";
 $lastname = "";
@@ -25,7 +21,6 @@ $contactNum = "";
 $address = "";
 $errors = [];
 
-// Process registration form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get form data
     $username = trim($_POST['username'] ?? '');
@@ -39,12 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contactNum = trim($_POST['contactNum'] ?? '');
     $address = trim($_POST['address'] ?? '');
     
-    // Handle profile picture upload
     $profilePicture = null;
     if (isset($_FILES['profilePicture']) && $_FILES['profilePicture']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = '../uploads/profile_pictures/';
         
-        // Create directory if it doesn't exist
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
@@ -53,13 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $targetFile = $uploadDir . $fileName;
         $imageFileType = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
         
-        // Check if image file is a actual image
         $check = getimagesize($_FILES['profilePicture']['tmp_name']);
         if ($check === false) {
             $errors[] = "File is not an image.";
         }
         
-        // Check file size (limit to 5MB)
         if ($_FILES['profilePicture']['size'] > 5000000) {
             $errors[] = "File is too large. Max size is 5MB.";
         }
@@ -79,11 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    // Validate form data
     if (empty($username)) {
         $errors[] = "Username is required";
     } else {
-        // Check if username already exists
         $stmt = $conn->prepare("SELECT userId FROM User WHERE username = ?");
         $stmt->bind_param("s", $username);
         $stmt->execute();
@@ -130,40 +119,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Address is required";
     }
     
-    // If no errors, create user
     if (empty($errors)) {
         // Hash password
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
         
-        // Set default values
         $followers = ($role === 'merchant') ? 0 : NULL;
         $following = ($role === 'customer') ? 0 : NULL;
         $userActivities = "Account created on " . date("m/d/Y H:i:s");
         $dateCreated = date("Y-m-d H:i:s");
         
-        // Insert user into database
         $stmt = $conn->prepare("INSERT INTO User (username, password, role, firstname, lastname, sex, birthday, contactNum, address, followers, following, dateCreated, userActivities, profilePicture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmt->bind_param("ssssssssssssss", $username, $hashedPassword, $role, $firstname, $lastname, $sex, $birthday, $contactNum, $address, $followers, $following, $dateCreated, $userActivities, $profilePicture);
         
         if ($stmt->execute()) {
             $userId = $stmt->insert_id;
             
-            // If user is a merchant, create merchant record
             if ($role === 'merchant') {
-                $storeName = $firstname . "'s Store"; // Default store name
+                $storeName = $firstname . "'s Store"; 
                 $merchantStmt = $conn->prepare("INSERT INTO Merchant (merchantId, userId, storeName) VALUES (?, ?, ?)");
                 $merchantStmt->bind_param("iis", $userId, $userId, $storeName);
                 $merchantStmt->execute();
                 $merchantStmt->close();
             }
             
-            // Set session variables
             $_SESSION['userId'] = $userId;
             $_SESSION['username'] = $username;
             $_SESSION['role'] = $role;
             $_SESSION['firstname'] = $firstname;
             
-            // Redirect to home page
             header("Location: ../index.php");
             exit();
         } else {
@@ -174,7 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Include header
 $pageTitle = "Register";
 include_once '../includes/header.php';
 ?>
@@ -422,7 +404,6 @@ function previewProfilePicture(input) {
     }
 }
 
-// Add active class to role selection
 document.querySelectorAll('input[name="role"]').forEach(radio => {
     radio.addEventListener('change', function() {
         document.querySelectorAll('.form-check-label[for^="role"]').forEach(label => {
@@ -436,7 +417,6 @@ document.querySelectorAll('input[name="role"]').forEach(radio => {
     });
 });
 
-// Add active class to sex selection
 document.querySelectorAll('input[name="sex"]').forEach(radio => {
     radio.addEventListener('change', function() {
         document.querySelectorAll('.form-check-label[for^="sex"]').forEach(label => {
@@ -453,7 +433,6 @@ document.querySelectorAll('input[name="sex"]').forEach(radio => {
 
 <?php include_once '../includes/footer.php'; ?>
 
-<!-- Add Font Awesome for icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 <style>

@@ -1,24 +1,22 @@
-/* style.css : Main Color Palette */
+
 :root {
     --primary-blue: #2caaff;
     --secondary-blue: #0078d4;
     --dark-blue: #005999;
     --light-blue: #e3f2fd;
-    --primary-color: #4285F4;      /* Primary blue */
-    --secondary-color: #34A853;    /* Green for success */
-    --accent-color: #FBBC05;       /* Yellow accent */
-    --danger-color: #EA4335;       /* Red for alerts/danger */
-    --dark-color: #333333;         /* Dark gray for text */
-    --light-color: #F8F9FA;        /* Light background */
-    --gray-color: #E0E0E0;         /* Light gray for borders */
-    --white-color: #FFFFFF;        /* White */
-    --white: #ffffff;
+    --primary-color: #4285F4;     
+    --secondary-color: #34A853;   
+    --accent-color: #FBBC05;      
+    --danger-color: #EA4335;      
+    --dark-color: #333333;         
+    --light-color: #F8F9FA;        
+    --gray-color: #E0E0E0;        
+    --white-color: #FFFFFF;       
     --black: #212529;
     --gray: #6c757d;
     --light-gray: #f8f9fa;
 }
 
-/* General Styles */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     overflow-x: hidden;
@@ -34,7 +32,6 @@ body {
     min-height: 70vh;
 }
 
-/* Splash Screen */
 #splash-screen {
     position: fixed;
     top: 0;
@@ -62,7 +59,6 @@ body {
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* Add transitions when splash screen disappears */
 .content-loaded .hero-section {
     animation: fadeInUp 0.8s ease forwards;
 }
@@ -79,7 +75,6 @@ body {
 }
 
 /* Navigation */
-/* Updated Navigation Styles */
 .navbar {
     background-color: #ffffff;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -100,7 +95,7 @@ body {
     font-weight: 500;
     margin: 0 10px;
     transition: color 0.3s ease;
-    padding: 0.5rem 0.75rem; /* Reduced padding for menu items */
+    padding: 0.5rem 0.75rem; 
     position: relative;
 }
 
@@ -108,7 +103,6 @@ body {
     color: var(--primary-blue) !important;
 }
 
-/* Add underline animation to nav links */
 .nav-link::after {
     content: '';
     position: absolute;
@@ -125,7 +119,6 @@ body {
     width: 80%;
 }
 
-/* Update auth buttons */
 .auth-buttons .btn {
     border-radius: 4px;
     font-weight: 500;
@@ -154,7 +147,6 @@ body {
     border-color: var(--secondary-blue);
 }
 
-/* For mobile responsiveness */
 @media (max-width: 992px) {
     .navbar-collapse {
         background-color: var(--white);
@@ -163,7 +155,7 @@ body {
         border-radius: 0 0 10px 10px;
     }
 }
-/* Override Bootstrap primary colors */
+
 .bg-primary {
     background-color: var(--primary-color) !important;
 }
@@ -642,12 +634,10 @@ footer img {
     50% { border-color: #38b6ff; }
 }
 
-/* Makes the animation loop infinitely */
 .typing {
     animation-iteration-count: infinite;
 }
 
-/* Responsive Adjustments */
 @media (max-width: 768px) {
     .hero-section {
         padding: 40px 0;

@@ -3,26 +3,44 @@ session_start();
 require_once '../includes/functions.php';
 requireLogin();
 
-// Process the payment
+//order/process_payment.php
 if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_POST['order_id'])) {
     $order_id = $_POST['order_id'];
     $user_id = $_SESSION['userId'];
     
     $conn = getConnection();
     
-    $stmt = $conn->prepare("SELECT * FROM Orders WHERE orderId = ? AND userId = ? AND toPay = 1");
+    $stmt = $conn->prepare("SELECT o.*, i.itemName, i.itemPrice, i.brand, m.storeName 
+                           FROM Orders o
+                           JOIN Item i ON o.itemId = i.itemId
+                           JOIN Merchant m ON i.merchantId = m.merchantId
+                           WHERE o.orderId = ? AND o.userId = ? AND o.toPay = 1");
     $stmt->bind_param("ii", $order_id, $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($result->num_rows > 0) {
+        $order = $result->fetch_assoc();
+        
         // Update order status
-        $updateStmt = $conn->prepare("UPDATE Orders SET toPay = 0, toShip = 1 WHERE orderId = ?");
+        $updateStmt = $conn->prepare("UPDATE Orders SET toPay = 0, toShip = 1, paymentDate = NOW() WHERE orderId = ?");
         $updateStmt->bind_param("i", $order_id);
         
         if ($updateStmt->execute()) {
             // Set success message
             $_SESSION['payment_success'] = true;
+            
+            // Fetch user information for receipt
+            $userStmt = $conn->prepare("SELECT * FROM User WHERE userId = ?");
+            $userStmt->bind_param("i", $user_id);
+            $userStmt->execute();
+            $userResult = $userStmt->get_result();
+            $user = $userResult->fetch_assoc();
+            $userStmt->close();
+            
+            // Display the receipt page
+            generateReceiptPage($order, $user);
+            exit;
         } else {
             // Set error message
             $_SESSION['payment_error'] = "Error processing payment. Please try again.";
@@ -45,6 +63,15 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
     header("Location: history.php");
     exit;
 }
+
+function generateReceiptPage($order, $user) {
+    // Format the price with PHP currency symbol
+    function formatPHP($price) {
+        return '₱' . number_format($price, 2);
+    }
+    
+    // Calculate shipping fee
+    $shippingFee = $order['totalPrice'] - ($order['itemPrice'] * $order['quantity']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,7 +79,12 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Confirmation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Include jsPDF and html2canvas libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary: #4361ee;
@@ -86,7 +118,7 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
             border-radius: 16px;
             box-shadow: var(--shadow);
             width: 100%;
-            max-width: 500px;
+            max-width: 600px;
             overflow: hidden;
             transform: translateY(20px);
             opacity: 0;
@@ -137,12 +169,26 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
             color: #6c757d;
         }
         
-        .confirmation-details {
+        #receiptContent {
             background: #f8f9fa;
             border-radius: 8px;
-            padding: 16px;
+            padding: 20px;
             margin-bottom: 24px;
             text-align: left;
+        }
+        
+        .receipt-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px dashed #ccc;
+        }
+        
+        .receipt-logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
         }
         
         .detail-row {
@@ -151,12 +197,24 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
             margin-bottom: 8px;
         }
         
-        .detail-row:last-child {
-            margin-bottom: 0;
+        .detail-row.total {
+            font-weight: bold;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #dee2e6;
         }
         
         .detail-label {
             font-weight: 500;
+        }
+        
+        .receipt-footer {
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
         }
         
         .confirmation-actions {
@@ -211,6 +269,11 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
             background: var(--white);
             width: 0;
             animation: progress 2s ease-in-out forwards;
+        }
+        
+        .animate-fade-in {
+            opacity: 0;
+            transition: opacity 0.5s ease;
         }
         
         /* Animations */
@@ -296,26 +359,225 @@ if (isset($_POST['action']) && $_POST['action'] == 'process_payment' && isset($_
                 Your order will be prepared for shipment shortly.
             </p>
             
-            <div class="confirmation-details">
-                <div class="detail-row">
-                    <span class="detail-label">Order ID:</span>
-                    <span>#<?php echo htmlspecialchars($order_id); ?></span>
+            <!-- Receipt Content Container (This will be used for PDF generation) -->
+            <div id="receiptContent" class="animate-fade-in">
+                <div class="receipt-header">
+                    <div class="receipt-logo">Eigenman</div>
+                    <div>Official Payment Receipt</div>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Date:</span>
-                    <span><?php echo date('F j, Y'); ?></span>
+                
+                <div class="receipt-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Receipt #:</span>
+                        <span>Eigenman#<?php echo date('Ymd') . '-' . $order['orderId']; ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Order ID:</span>
+                        <span>#<?php echo htmlspecialchars($order['orderId']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Date:</span>
+                        <span><?php echo date('F j, Y'); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Payment Method:</span>
+                        <span><?php echo ucfirst(htmlspecialchars($order['modeOfPayment'])); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Customer:</span>
+                        <span><?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></span>
+                    </div>
                 </div>
-                <div class="detail-row">
-                    <span class="detail-label">Status:</span>
-                    <span>Payment Confirmed</span>
+                
+                <hr class="my-3">
+                
+                <div class="item-details">
+                    <h6 class="mb-3">Item Details</h6>
+                    <div class="detail-row">
+                        <span class="detail-label">Item:</span>
+                        <span><?php echo htmlspecialchars($order['itemName']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Brand:</span>
+                        <span><?php echo htmlspecialchars($order['brand']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Store:</span>
+                        <span><?php echo htmlspecialchars($order['storeName']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Quantity:</span>
+                        <span><?php echo $order['quantity']; ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Unit Price:</span>
+                        <span><?php echo formatPHP($order['itemPrice']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Subtotal:</span>
+                        <span><?php echo formatPHP($order['itemPrice'] * $order['quantity']); ?></span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Shipping Fee:</span>
+                        <span><?php echo formatPHP($shippingFee >= 0 ? $shippingFee : 0); ?></span>
+                    </div>
+                    
+                    <div class="detail-row total">
+                        <span class="detail-label">Total Amount:</span>
+                        <span><?php echo formatPHP($order['totalPrice']); ?></span>
+                    </div>
+                </div>
+                
+                <div class="receipt-footer">
+                    <div>Thank you for shopping with Eigenman!</div>
+                    <div>For any inquiries, please contact support@eigenman.com</div>
                 </div>
             </div>
             
             <div class="confirmation-actions">
-                <a href="details.php?id=<?php echo $order_id; ?>" class="btn btn-primary pulse">View Order Details</a>
-                <a href="history.php" class="btn btn-outline">Back to Orders</a>
+                <button id="downloadPDF" class="btn btn-primary">
+                    <i class="bi bi-download me-2"></i>Download Receipt PDF
+                </button>
+                <a href="details.php?id=<?php echo $order['orderId']; ?>" class="btn btn-outline">
+                    <i class="bi bi-eye me-2"></i>View Order Details
+                </a>
             </div>
         </div>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add animation classes with delays
+        const elements = document.querySelectorAll('.animate-fade-in');
+        elements.forEach((el, index) => {
+            setTimeout(() => {
+                el.style.opacity = '1';
+            }, 300 * index);
+        });
+
+        // PDF Download functionality
+        const downloadBtn = document.getElementById('downloadPDF');
+        if(downloadBtn) {
+            downloadBtn.addEventListener('click', function() {
+                // Show loading state
+                const btn = this;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-spinner spin me-2"></i>Generating PDF...';
+                btn.disabled = true;
+                
+                // Get the receipt content
+                const element = document.getElementById('receiptContent');
+                
+                // Store date for filename
+                const now = new Date();
+                const dateStr = now.getFullYear() + '-' + 
+                              String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                              String(now.getDate()).padStart(2, '0');
+                
+                try {
+                    // Create a clone to avoid affecting the displayed content
+                    const clone = element.cloneNode(true);
+                    clone.style.background = '#FFFFFF';
+                    clone.style.width = '210mm'; // A4 width
+                    clone.style.padding = '15mm';
+                    clone.style.position = 'absolute';
+                    clone.style.left = '-9999px';
+                    document.body.appendChild(clone);
+                    
+                    // Handle pagination using html2canvas and jsPDF
+                    generatePDF(clone).then(() => {
+                        // Cleanup
+                        document.body.removeChild(clone);
+                        
+                        // Restore button state
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                    }).catch(error => {
+                        console.error('PDF generation error:', error);
+                        alert('There was an error generating the PDF. Please try again.');
+                        
+                        // Cleanup
+                        if (document.body.contains(clone)) {
+                            document.body.removeChild(clone);
+                        }
+                        
+                        // Restore button state
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                    });
+                    
+                } catch (error) {
+                    console.error('PDF setup error:', error);
+                    alert('There was an error setting up the PDF generation. Please try again.');
+                    
+                    // Restore button state
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+                
+                // Function to generate a multi-page PDF
+                async function generatePDF(element) {
+                    // Initialize jsPDF
+                    const { jsPDF } = window.jspdf;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    
+                    // Define PDF dimensions
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+                    const margin = 10; // mm
+                    const usableHeight = pageHeight - (2 * margin);
+                    
+                    // Get element total height
+                    const totalHeight = element.scrollHeight;
+                    
+                    // Calculate number of pages needed
+                    const totalPages = Math.ceil(totalHeight / (usableHeight * 3.779)); // Convert mm to px
+                    
+                    // Page by page rendering
+                    for (let i = 0; i < totalPages; i++) {
+                        // Add new page after the first page
+                        if (i > 0) {
+                            pdf.addPage();
+                        }
+                        
+                        // Calculate the vertical position to capture for this page
+                        const captureHeight = Math.min(element.scrollHeight, usableHeight * 3.779); // Approx px-to-mm conversion
+                        const captureY = i * usableHeight * 3.779;
+                        
+                        // Use html2canvas to capture the specific section
+                        const canvas = await html2canvas(element, {
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#FFFFFF',
+                            logging: false,
+                            windowWidth: element.scrollWidth,
+                            windowHeight: totalHeight,
+                            y: captureY,
+                            height: captureHeight
+                        });
+                        
+                        // Add the canvas as image to the PDF
+                        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                        const imgWidth = pageWidth - (2 * margin);
+                        
+                        // Calculate the height of the image proportionally
+                        const ratio = imgWidth / canvas.width;
+                        const imgHeight = canvas.height * ratio;
+                        
+                        // Add image to PDF
+                        pdf.addImage(imgData, 'JPEG', margin, margin, imgWidth, imgHeight);
+                    }
+                    
+                    // Save the PDF with an appropriate filename
+                    pdf.save('payment-receipt-<?php echo $order['orderId']; ?>-' + dateStr + '.pdf');
+                }
+            });
+        }
+    });
+    </script>
 </body>
 </html>
+<?php
+}
+?>

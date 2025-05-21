@@ -123,29 +123,32 @@ else if (isset($_POST['selectedItems']) && !empty($_POST['selectedItems'])) {
     $selectedItems = $_POST['selectedItems'];
     $quantities = $_POST['quantities'] ?? [];
 
+
     $placeholders = implode(',', array_fill(0, count($selectedItems), '?'));
     $types = str_repeat('i', count($selectedItems));
 
-    $sql = "SELECT c.*, i.itemName, i.itemPrice, i.picture, i.quantity as stockQuantity, 
-            i.brand, m.storeName, i.merchantId 
-            FROM UserCart c 
-            JOIN Item i ON c.itemId = i.itemId 
-            JOIN Merchant m ON i.merchantId = m.merchantId 
+
+    $sql = "SELECT c.*, i.itemName, i.itemPrice, i.picture, i.quantity as stockQuantity,
+            i.brand, m.storeName, i.merchantId
+            FROM UserCart c
+            JOIN Item i ON c.itemId = i.itemId
+            JOIN Merchant m ON i.merchantId = m.merchantId
             WHERE c.userId = ? AND c.itemId IN ($placeholders)";
-            
+           
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i".$types, $userId, ...$selectedItems);
     $stmt->execute();
     $result = $stmt->get_result();
 
+
     while ($row = $result->fetch_assoc()) {
         $itemQuantity = $quantities[$row['itemId']] ?? $row['quantity'];
         $row['quantity'] = $itemQuantity;
         $row['totalPrice'] = $row['itemPrice'] * $itemQuantity;
-        
+       
         $cartItems[] = $row;
         $totalCartPrice += $row['totalPrice'];
-        
+       
         $merchantId = $row['merchantId'];
         if (!isset($itemsByMerchant[$merchantId])) {
             $itemsByMerchant[$merchantId] = [
@@ -157,14 +160,14 @@ else if (isset($_POST['selectedItems']) && !empty($_POST['selectedItems'])) {
         }
         $itemsByMerchant[$merchantId]['items'][] = $row;
         $itemsByMerchant[$merchantId]['subtotal'] += $row['totalPrice'];
-        
-        $availableStock = $item['stockQuantity'] ?? $item['quantity'] ?? 0;
+       
+        $availableStock = $row['stockQuantity'] ?? $row['quantity'] ?? 0;
         if ($itemQuantity > $availableStock) {
             $stockIssues = true;
             $errorMessage = "Not enough stock available for " . $row['itemName'];
         }
     }
-} 
+}
 else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['error'] = "Please select items to checkout.";
     header("Location: ../cart/view.php");
@@ -179,51 +182,70 @@ if (isset($_POST['place_order']) && !empty($cartItems) && !$stockIssues) {
     if (isset($_SESSION['direct_buy_data'])) {
         unset($_SESSION['direct_buy_data']);
     }
-    
+
     // Get delivery details
     $address = $_POST['address'];
     $contact = $_POST['contact'];
     $paymentMethod = $_POST['payment_method'];
-    
+
     // Start transaction
     $conn->begin_transaction();
-    
+
     try {
-        // Process each merchant's order separately
         foreach ($itemsByMerchant as $merchantData) {
             $merchantId = $merchantData['merchantId'];
-            
-            // Create order record for this merchant
             $orderDate = date('Y-m-d H:i:s');
             $eta = date('Y-m-d H:i:s', strtotime('+3 days'));
-            
+
             foreach ($merchantData['items'] as $item) {
-                // Insert into Orders table
+                $itemId = $item['itemId'];
+                $itemQuantity = $item['quantity'];
+
+                // ✅ Lock the item row to prevent race conditions
+                $sqlCheckStock = "SELECT quantity FROM Item WHERE itemId = ? FOR UPDATE";
+                $stmtCheckStock = $conn->prepare($sqlCheckStock);
+                $stmtCheckStock->bind_param("i", $itemId);
+                $stmtCheckStock->execute();
+                $resultStock = $stmtCheckStock->get_result();
+
+                if ($resultStock->num_rows === 0) {
+                    throw new Exception("Item not found.");
+                }
+
+                $stockRow = $resultStock->fetch_assoc();
+                $currentStock = (int)$stockRow['quantity'];
+
+                if ($itemQuantity > $currentStock) {
+                    throw new Exception("Not enough stock available for " . $item['itemName'] . ". Available: $currentStock, Requested: $itemQuantity");
+                }
+
+                // Proceed with placing the order
+                $totalPrice = $item['totalPrice'];
+
                 $sqlOrder = "INSERT INTO Orders (userId, merchantId, itemId, quantity, totalPrice, address, contact, modeOfPayment, orderDate, eta, toPay, toShip, toReceive, toRate) 
                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $stmtOrder = $conn->prepare($sqlOrder);
-                
-                // Set initial order status flags
+
                 $toPay = ($paymentMethod == 'cod') ? 0 : 1;
                 $toShip = 1;
                 $toReceive = 0;
                 $toRate = 0;
-                
+
                 $stmtOrder->bind_param("iiiidsssssiiii", 
-                    $userId, $merchantId, $item['itemId'], $item['quantity'], 
-                    $item['totalPrice'], $address, $contact, $paymentMethod, 
+                    $userId, $merchantId, $itemId, $itemQuantity, 
+                    $totalPrice, $address, $contact, $paymentMethod, 
                     $orderDate, $eta, $toPay, $toShip, $toReceive, $toRate
                 );
                 $stmtOrder->execute();
                 $orderId = $conn->insert_id;
-                
-                // Create notification for merchant
+
+                // Notify merchant
                 $notifMessage = $user['username'] . " placed an order for " . $item['itemName'];
                 $sqlNotif = "INSERT INTO Notifications (receiverId, senderId, orderId, message, timestamp) 
                              VALUES (?, ?, ?, ?, ?)";
                 $stmtNotif = $conn->prepare($sqlNotif);
                 $timestamp = date('Y-m-d H:i:s');
-                
+
                 $sqlMerchantUser = "SELECT userId FROM Merchant WHERE merchantId = ?";
                 $stmtMerchantUser = $conn->prepare($sqlMerchantUser);
                 $stmtMerchantUser->bind_param("i", $merchantId);
@@ -231,44 +253,40 @@ if (isset($_POST['place_order']) && !empty($cartItems) && !$stockIssues) {
                 $merchantUserResult = $stmtMerchantUser->get_result();
                 $merchantUser = $merchantUserResult->fetch_assoc();
                 $merchantUserId = $merchantUser['userId'];
-                
+
                 $stmtNotif->bind_param("iiiss", $merchantUserId, $userId, $orderId, $notifMessage, $timestamp);
                 $stmtNotif->execute();
-                
-                $stockQuantity = isset($item['stockQuantity']) ? $item['stockQuantity'] : $item['quantity'];
-                $itemQuantity = $item['quantity'];
-                $newStock = $stockQuantity - $itemQuantity;
+
+                // ✅ Update stock after re-checking
+                $newStock = $currentStock - $itemQuantity;
                 $sqlUpdateStock = "UPDATE Item SET quantity = ? WHERE itemId = ?";
                 $stmtUpdateStock = $conn->prepare($sqlUpdateStock);
-                $stmtUpdateStock->bind_param("ii", $newStock, $item['itemId']);
+                $stmtUpdateStock->bind_param("ii", $newStock, $itemId);
                 $stmtUpdateStock->execute();
             }
         }
-        
+
         // Remove purchased items from cart (if not direct buy)
         if (!$isDirectBuy && !empty($selectedItems)) {
             $placeholders = implode(',', array_fill(0, count($selectedItems), '?'));
             $types = str_repeat('i', count($selectedItems));
-            
+
             $sqlClearCart = "DELETE FROM UserCart WHERE userId = ? AND itemId IN ($placeholders)";
             $stmtClearCart = $conn->prepare($sqlClearCart);
-            $stmtClearCart->bind_param("i".$types, $userId, ...$selectedItems);
+            $stmtClearCart->bind_param("i" . $types, $userId, ...$selectedItems);
             $stmtClearCart->execute();
         }
-        
-        // Commit transaction
+
         $conn->commit();
-        
-        // Redirect to order confirmation page
+
         $_SESSION['success'] = "Your order has been placed successfully!";
         header("Location: confirmation.php");
         exit();
     } catch (Exception $e) {
-        // Rollback transaction in case of error
         $conn->rollback();
         $errorMessage = "An error occurred while processing your order: " . $e->getMessage();
-        
-        // Store direct buy data in session if this was a direct buy
+
+        // Re-save direct buy data if this was a direct buy
         if ($isDirectBuy) {
             $_SESSION['direct_buy_data'] = [
                 'itemId' => $_POST['direct_buy_item'],
