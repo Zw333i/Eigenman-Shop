@@ -187,7 +187,9 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                         <th scope="col">Total</th>
                                         <th scope="col">Date</th>
                                         <th scope="col">Status</th>
+                                        <?php if ($filter !== 'all'): ?>
                                         <th scope="col">Actions</th>
+                                        <?php endif; ?>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -226,6 +228,7 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                             }
                                             ?>
                                         </td>
+                                        <?php if ($filter !== 'all'): ?>
                                         <td>
                                             <button type="button" class="btn btn-sm btn-outline-primary" 
                                                     data-bs-toggle="modal" 
@@ -233,6 +236,7 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                                 <i class="fas fa-eye"></i> View
                                             </button>
                                         </td>
+                                        <?php endif; ?>
                                     </tr>
                                     <?php endwhile; ?>
                                 </tbody>
@@ -302,8 +306,8 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
 
 <!-- Order Details Modals -->
 <?php
-// Use the stored orders array to generate modals
-if (!empty($orders)):
+// Use the stored orders array to generate modals - only for filtered views, not "all"
+if (!empty($orders) && $filter !== 'all'):
     foreach ($orders as $order):
 ?>
 <div class="modal fade" id="orderDetailsModal<?php echo $order['orderId']; ?>" tabindex="-1" 

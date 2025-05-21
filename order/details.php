@@ -163,14 +163,14 @@ include_once '../includes/header.php';
                                     <!-- Status steps -->
                                 <div class="d-flex flex-column align-items-center position-relative" style="z-index: 1;">
                                     <div class="rounded-circle d-flex align-items-center justify-content-center shadow-sm" 
-                                         style="width: 40px; height: 40px; <?php echo !$order['toPay'] ? 'background-color: #dc3545;' : 'background-color: #f1f1f1; border: 2px solid #dc3545;'; ?>">
+                                         style="width: 40px; height: 40px; <?php echo !$order['toPay'] ? 'background-color:#35dc43;' : 'background-color: #f1f1f1; border: 2px solid #35dc43;'; ?>">
                                         <?php if (!$order['toPay']): ?>
                                             <i class="bi bi-check-lg text-white"></i>
                                         <?php else: ?>
                                             <span class="text-danger">1</span>
                                         <?php endif; ?>
                                     </div>
-                                    <span class="mt-2 small fw-bold <?php echo !$order['toPay'] ? 'text-danger' : 'text-muted'; ?>">Payment</span>
+                                    <span class="mt-2 small fw-bold <?php echo !$order['toPay'] ? 'text' : 'text-muted'; ?>">Payment</span>
                                 </div>
                                 
                                 <div class="d-flex flex-column align-items-center position-relative" style="z-index: 1;">
@@ -353,7 +353,9 @@ include_once '../includes/header.php';
                         </a>
                         
                         <?php if ($order['toReceive']): ?>
-                        
+                        <a href="receive.php" class="btn btn-outline-primary">
+                            <i class=></i> Confirm Receipt
+                        </a>
                         <?php endif; ?>
                         
                         <?php if ($order['toRate']): ?>

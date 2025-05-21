@@ -1,5 +1,5 @@
 <?php
-// includes/ navbar.pj[]
+// includes/navbar.php
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -51,6 +51,25 @@ if (isset($_SESSION['userId']) && isset($conn) && isset($_SESSION['role']) && $_
     }
 }
 
+$notificationsCount = 0;
+if (isset($_SESSION['userId']) && isset($conn)) {
+    $checkNotifTableQuery = "SHOW TABLES LIKE 'Notifications'";
+    $notifTableExists = $conn->query($checkNotifTableQuery);
+    
+    if ($notifTableExists && $notifTableExists->num_rows > 0) {
+        $userId = $_SESSION['userId'];
+        // Only count unread notifications (isRead = 0)
+        $notifQuery = "SELECT COUNT(*) as count FROM Notifications WHERE receiverId = $userId AND isRead = 0";
+        $notifResult = $conn->query($notifQuery);
+        if ($notifResult && $notifResult->num_rows > 0) {
+            $notifData = $notifResult->fetch_assoc();
+            $notificationsCount = $notifData['count'];
+        }
+    }
+}
+// Store in session for use across pages
+$_SESSION['unreadNotifications'] = $notificationsCount;
+
 $basePath = '/e-commerce/'; 
 ?>
 
@@ -99,6 +118,16 @@ $basePath = '/e-commerce/';
             <?php if (isset($_SESSION['userId'])) : ?>
                 <!-- Logged in user menu -->
                 <div class="d-flex align-items-center user-menu-container">
+                    <!-- Notifications icon for all users -->
+                    <a href="<?php echo $basePath; ?>notifications/index.php" class="notification-icon position-relative me-3" aria-label="Notifications">
+                        <i class="fas fa-bell text-primary fs-5"></i>
+                        <?php if ($notificationsCount > 0): ?>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge">
+                            <?php echo $notificationsCount; ?>
+                        </span>
+                        <?php endif; ?>
+                    </a>
+                    
                     <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'merchant'): ?>
                     <!-- Only show cart icon for non-merchant users -->
                     <a href="<?php echo $basePath; ?>cart/view.php" class="cart-icon position-relative me-3" aria-label="Shopping Cart">
@@ -140,6 +169,12 @@ $basePath = '/e-commerce/';
                         <ul class="dropdown-menu dropdown-menu-end animate-dropdown" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="<?php echo $basePath; ?>auth/profile.php">
                                 <i class="fas fa-user-circle me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="<?php echo $basePath; ?>notifications/index.php">
+                                <i class="fas fa-bell me-2"></i>Notifications
+                                <?php if ($notificationsCount > 0): ?>
+                                <span class="badge rounded-pill bg-danger ms-2"><?php echo $notificationsCount; ?></span>
+                                <?php endif; ?>
                             </a></li>
                             <?php if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'merchant'): ?>
                             <li><a class="dropdown-item" href="<?php echo $basePath; ?>order/history.php">
@@ -361,19 +396,19 @@ $basePath = '/e-commerce/';
     }
 }
 
-/* Cart and Chat icon animations */
-.cart-icon, .chat-icon {
+/* Cart, Chat, and Notification icon animations */
+.cart-icon, .chat-icon, .notification-icon {
     position: relative;
     cursor: pointer;
     transition: all 0.3s ease;
     z-index: 1031; /* Same as user-menu-container */
 }
 
-.cart-icon:hover, .chat-icon:hover {
+.cart-icon:hover, .chat-icon:hover, .notification-icon:hover {
     transform: scale(1.15);
 }
 
-.cart-badge, .chat-badge {
+.cart-badge, .chat-badge, .notification-badge {
     animation: badge-pulse 2s infinite;
     font-size: 0.65rem;
     font-weight: 700;
@@ -413,6 +448,40 @@ $basePath = '/e-commerce/';
     60% {
         transform: scale(1);
     }
+}
+
+/* Notification badge with gentle bell shake animation */
+.notification-badge {
+    animation: notification-bell-shake 3s infinite;
+}
+
+@keyframes notification-bell-shake {
+    0%, 50%, 100% {
+        transform: scale(1) rotate(0deg);
+    }
+    10% {
+        transform: scale(1.2) rotate(-15deg);
+    }
+    20% {
+        transform: scale(1.1) rotate(10deg);
+    }
+    30% {
+        transform: scale(1.15) rotate(-10deg);
+    }
+    40% {
+        transform: scale(1.05) rotate(5deg);
+    }
+}
+
+/* Notification icon hover effect with bell shake */
+.notification-icon:hover i {
+    animation: bell-ring 0.5s ease-in-out;
+}
+
+@keyframes bell-ring {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-10deg); }
+    75% { transform: rotate(10deg); }
 }
 
 /* Sign in and Register buttons animation */
