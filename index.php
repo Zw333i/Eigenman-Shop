@@ -137,25 +137,28 @@
                         <?php foreach ($featuredProducts as $index => $product): ?>
                             <div class="col-md-4 col-lg-3 mb-4" data-aos="fade-up" data-aos-delay="<?php echo ($index + 1) * 100; ?>">
                                 <div class="card h-100 product-card">
-                                    <?php if (!empty($product['picture'])): ?>
-                                        <img src="<?php echo htmlspecialchars($product['picture']); ?>" class="card-img-top product-img" alt="<?php echo htmlspecialchars($product['itemName']); ?>">
-                                    <?php else: ?>
-                                        <img src="assets/images/product-placeholder.jpg" class="card-img-top product-img" alt="Product">
-                                    <?php endif; ?>
-                                    <div class="card-body">
-                                        <h5 class="card-title text-truncate"><?php echo htmlspecialchars($product['itemName']); ?></h5>
-                                        <p class="card-text">
-                                            <span class="text-muted"><?php echo htmlspecialchars($product['brand']); ?></span><br>
-                                            <span class="fw-bold text-primary">₱<?php echo number_format($product['itemPrice'], 2); ?></span>
-                                        </p>
-                                    </div>
+                                    <a href="product/details.php?id=<?php echo $product['itemId']; ?>" class="text-decoration-none text-dark">
+                                        <?php if (!empty($product['picture'])): ?>
+                                            <img src="<?php echo htmlspecialchars($product['picture']); ?>" class="card-img-top product-img" alt="<?php echo htmlspecialchars($product['itemName']); ?>">
+                                        <?php else: ?>
+                                            <img src="assets/images/product-placeholder.jpg" class="card-img-top product-img" alt="Product">
+                                        <?php endif; ?>
+                                        <div class="card-body">
+                                            <h5 class="card-title text-truncate"><?php echo htmlspecialchars($product['itemName']); ?></h5>
+                                            <p class="card-text">
+                                                <span class="text-muted"><?php echo htmlspecialchars($product['brand']); ?></span><br>
+                                                <span class="fw-bold text-primary">₱<?php echo number_format($product['itemPrice'], 2); ?></span>
+                                            </p>
+                                        </div>
+                                    </a>
                                     <div class="card-footer bg-white border-top-0">
                                         <div class="d-flex justify-content-between">
                                             <a href="product/details.php?id=<?php echo $product['itemId']; ?>" class="btn btn-sm btn-primary">View Details</a>
                                             <?php if ($product['quantity'] > 0): ?>
-                                                <a href="cart/add.php?id=<?php echo $product['itemId']; ?>&qty=1" class="btn btn-sm btn-success">
-                                                    <i class="fas fa-cart-plus"></i>
-                                                </a>
+                                                <form action="cart/add.php" method="post" class="d-inline">
+                                                    
+                                                    
+                                                </form>
                                             <?php else: ?>
                                                 <span class="badge bg-danger">Out of Stock</span>
                                             <?php endif; ?>

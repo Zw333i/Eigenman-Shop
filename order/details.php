@@ -54,10 +54,10 @@ if ($order['toPay']) {
     $orderStatus = 'To Pay';
     $statusClass = 'badge bg-danger text-white';
 } elseif ($order['toShip']) {
-    $orderStatus = 'To Ship';
+    $orderStatus = 'To Ship | Waiting for the merchant to ship the item';
     $statusClass = 'badge bg-warning text-dark'; 
 } elseif ($order['toReceive']) {
-    $orderStatus = 'To Receive';
+    $orderStatus = 'To Receive | Item in transit';
     $statusClass = 'badge bg-info text-dark';
 } elseif ($order['toRate']) {
     $orderStatus = 'To Rate';
@@ -130,21 +130,35 @@ include_once '../includes/header.php';
                         <div class="mt-4">
                             <div class="d-flex justify-content-between position-relative mb-3">
                                 <!-- Progress line -->
-                                <div class="progress position-absolute w-100" style="height: 6px; top: 17px; z-index: 0;">
-                                    <div class="progress-bar bg-primary" role="progressbar" 
-                                         style="width: <?php 
-                                             $progress = 0;
-                                             if (!$order['toPay']) $progress += 25;
-                                             if (!$order['toShip']) $progress += 25;
-                                             if (!$order['toReceive']) $progress += 25;
-                                             if (!$order['toRate']) $progress += 25;
-                                             echo $progress; 
-                                         ?>%" 
-                                         aria-valuenow="<?php echo $progress; ?>" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                    </div>
-                                </div>
+<div class="progress position-absolute w-100" style="height: 6px; top: 17px; z-index: 0;">
+    <div class="progress-bar bg-primary" role="progressbar" 
+         style="width: <?php 
+             // Calculate progress based on order status
+             $progress = 0;
+             if ($order['toPay']) {
+                 // Still at payment stage
+                 $progress = 0;
+             } elseif ($order['toShip']) {
+                 // Payment done, waiting for shipping
+                 $progress = 25;
+             } elseif ($order['toReceive']) {
+                 // Shipping done, waiting for delivery
+                 $progress = 50;
+             } elseif ($order['toRate']) {
+                 // Delivery done, waiting for rating
+                 $progress = 75;
+             } else {
+                 // All done
+                 $progress = 100;
+             }
+             echo $progress; 
+         ?>%" 
+         aria-valuenow="<?php echo $progress; ?>" 
+         aria-valuemin="0" 
+         aria-valuemax="100">
+    </div>
+</div>
+
         
                                     <!-- Status steps -->
                                 <div class="d-flex flex-column align-items-center position-relative" style="z-index: 1;">
@@ -208,30 +222,33 @@ include_once '../includes/header.php';
                     <!-- Item Details -->
                     <div class="mb-4">
                         <h6 class="card-subtitle mb-3 text-muted">Item Details</h6>
-                        <div class="border rounded p-3">
-                            <div class="row align-items-center">
-                                <div class="col-md-2 col-sm-3 mb-3 mb-md-0">
-                                    <?php if (!empty($item['picture'])): ?>
-                                        <img src="../<?php echo htmlspecialchars($item['picture']); ?>" 
-                                             alt="<?php echo htmlspecialchars($item['itemName']); ?>" 
-                                             class="img-fluid rounded" style="max-height: 80px; width: auto;">
-                                    <?php else: ?>
-                                        <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 80px;">
-                                            <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
-                                        </div>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="col-md-7 col-sm-9">
-                                    <h6 class="mb-1"><?php echo htmlspecialchars($item['itemName']); ?></h6>
-                                    <p class="mb-1 text-muted small">Brand: <?php echo htmlspecialchars($item['brand']); ?></p>
-                                    <p class="mb-0 text-muted small">Store: <?php echo htmlspecialchars($item['storeName']); ?></p>
-                                </div>
-                                <div class="col-md-3 mt-3 mt-md-0 text-md-end">
-                                    <div class="mb-1"><?php echo formatPHP($item['itemPrice']); ?> × <?php echo $order['quantity']; ?></div>
-                                    <div class="fw-bold text-primary"><?php echo formatPHP($order['totalPrice']); ?></div>
-                                </div>
-                            </div>
-                        </div>
+<div class="border rounded p-3">
+    <a href="../product/details.php?id=<?php echo $item['itemId']; ?>" class="text-decoration-none text-dark">
+        <div class="row align-items-center">
+            <div class="col-md-2 col-sm-3 mb-3 mb-md-0">
+                <?php if (!empty($item['picture'])): ?>
+                    <img src="../<?php echo htmlspecialchars($item['picture']); ?>" 
+                         alt="<?php echo htmlspecialchars($item['itemName']); ?>" 
+                         class="img-fluid rounded" style="max-height: 80px; width: auto;">
+                <?php else: ?>
+                    <div class="bg-light d-flex align-items-center justify-content-center rounded" style="height: 80px;">
+                        <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="col-md-7 col-sm-9">
+                <h6 class="mb-1"><?php echo htmlspecialchars($item['itemName']); ?></h6>
+                <p class="mb-1 text-muted small">Brand: <?php echo htmlspecialchars($item['brand']); ?></p>
+                <p class="mb-0 text-muted small">Store: <?php echo htmlspecialchars($item['storeName']); ?></p>
+            </div>
+            <div class="col-md-3 mt-3 mt-md-0 text-md-end">
+                <div class="mb-1"><?php echo formatPHP($item['itemPrice']); ?> × <?php echo $order['quantity']; ?></div>
+                <div class="fw-bold text-primary"><?php echo formatPHP($order['totalPrice']); ?></div>
+            </div>
+        </div>
+    </a>
+</div>
+
                     </div>
 
                     <!-- Rating and Review Section (Only visible when completed and rated) -->
@@ -336,9 +353,7 @@ include_once '../includes/header.php';
                         </a>
                         
                         <?php if ($order['toReceive']): ?>
-                        <a href="receive.php?id=<?php echo $order['orderId']; ?>" class="btn btn-primary">
-                            <i class="bi bi-check-circle me-1"></i> Confirm Receipt
-                        </a>
+                        
                         <?php endif; ?>
                         
                         <?php if ($order['toRate']): ?>

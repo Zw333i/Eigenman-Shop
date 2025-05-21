@@ -250,45 +250,59 @@ include_once '../includes/header.php';
                         </div>
                     </div>
                     
-                    <div class="store-info-card mb-4 fade-in-element">
-                        <div class="d-flex align-items-center">
-                            <div class="store-image me-3">
-                                <?php if (!empty($product['merchantProfilePic']) && file_exists("../" . $product['merchantProfilePic'])): ?>
-                                    <img src="../<?php echo htmlspecialchars($product['merchantProfilePic']); ?>" class="rounded-circle" width="50" height="50" alt="Merchant Profile">
-                                <?php else: ?>
-                                    <img src="../assets/images/profile-placeholder.jpg" class="rounded-circle" width="50" height="50" alt="Merchant Profile">
-                                <?php endif; ?>
-                            </div>
-                            <div>
-                                <p class="mb-1 fw-bold store-name"><?php echo htmlspecialchars($product['storeName']); ?></p>
-                                <div class="store-actions d-flex flex-wrap">
-                                    <a href="../merchant/store.php?id=<?php echo $product['merchantId']; ?>" class="btn btn-sm btn-outline-secondary me-2 mb-2 store-btn">
-                                        <i class="bi bi-shop"></i> Visit Store
-                                    </a>
-                                    <?php if (isset($_SESSION['userId']) && $_SESSION['role'] === 'customer'): ?>
-                                        <?php if ($isFollowing): ?>
-                                            <form method="POST" class="me-2 mb-2">
-                                                <input type="hidden" name="follow_action" value="unfollow">
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary follow-btn">
-                                                    <i class="bi bi-person-check"></i> Following
-                                                </button>
-                                            </form>
-                                        <?php else: ?>
-                                            <form method="POST" class="me-2 mb-2">
-                                                <input type="hidden" name="follow_action" value="follow">
-                                                <button type="submit" class="btn btn-sm btn-primary follow-btn">
-                                                    <i class="bi bi-person-plus"></i> Follow
-                                                </button>
-                                            </form>
-                                        <?php endif; ?>
-                                        <a href="../chats/index.php?recipient=<?php echo $product['merchantUserId']; ?>" class="btn btn-sm btn-outline-info mb-2 chat-btn">
-                                            <i class="bi bi-chat-dots"></i> Message Seller
-                                        </a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<div class="store-info-card mb-4 fade-in-element">
+    <div class="d-flex align-items-center">
+        <div class="store-image me-3">
+            <a href="../merchant/store.php?id=<?php echo $product['merchantId']; ?>" class="text-decoration-none">
+                <?php if (!empty($product['merchantProfilePic']) && file_exists("../" . $product['merchantProfilePic'])): ?>
+                    <img src="../<?php echo htmlspecialchars($product['merchantProfilePic']); ?>" 
+                         class="rounded-circle" 
+                         width="50" 
+                         height="50" 
+                         alt="Merchant Profile">
+                <?php else: ?>
+                    <img src="../assets/images/profile-placeholder.jpg" 
+                         class="rounded-circle" 
+                         width="50" 
+                         height="50" 
+                         alt="Merchant Profile">
+                <?php endif; ?>
+            </a>
+        </div>
+        <div>
+            <p class="mb-1 fw-bold store-name">
+                <a href="../merchant/store.php?id=<?php echo $product['merchantId']; ?>" class="text-decoration-none text-dark">
+                    <?php echo htmlspecialchars($product['storeName']); ?>
+                </a>
+            </p>
+            <div class="store-actions d-flex flex-wrap">
+                <a href="../merchant/store.php?id=<?php echo $product['merchantId']; ?>" class="btn btn-sm btn-outline-secondary me-2 mb-2 store-btn">
+                    <i class="bi bi-shop"></i> Visit Store
+                </a>
+                <?php if (isset($_SESSION['userId']) && $_SESSION['role'] === 'customer'): ?>
+                    <?php if ($isFollowing): ?>
+                        <form method="POST" class="me-2 mb-2">
+                            <input type="hidden" name="follow_action" value="unfollow">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary follow-btn">
+                                <i class="bi bi-person-check"></i> Following
+                            </button>
+                        </form>
+                    <?php else: ?>
+                        <form method="POST" class="me-2 mb-2">
+                            <input type="hidden" name="follow_action" value="follow">
+                            <button type="submit" class="btn btn-sm btn-primary follow-btn">
+                                <i class="bi bi-person-plus"></i> Follow
+                            </button>
+                        </form>
+                    <?php endif; ?>
+                    <a href="../chats/index.php?recipient=<?php echo $product['merchantUserId']; ?>" class="btn btn-sm btn-outline-info mb-2 chat-btn">
+                        <i class="bi bi-chat-dots"></i> Message Seller
+                    </a>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
                     
                     <?php if (isset($_SESSION['userId']) && $_SESSION['role'] === 'customer'): ?>
                         <div class="purchase-section mb-4 fade-in-element">
@@ -448,7 +462,6 @@ include_once '../includes/header.php';
     <?php endif; ?>
 </div>
 
-<!-- Hidden form for Buy Now functionality -->
 <form id="buyNowForm" action="../order/checkout.php" method="POST" style="display: none;">
     <input type="hidden" name="direct_buy" value="1">
     <input type="hidden" name="direct_buy_item" value="<?php echo $product['itemId']; ?>">
@@ -827,19 +840,53 @@ include_once '../includes/header.php';
         }
         
         const buyNowBtn = document.getElementById('buyNowBtn');
-        if (buyNowBtn) {
-            buyNowBtn.addEventListener('click', function() {
-                const quantity = document.getElementById('quantity').value;
-                
-                document.getElementById('buyNowQuantity').value = quantity;
-                
-                this.classList.add('animate__animated', 'animate__pulse');
-                
-                setTimeout(() => {
-                    document.getElementById('buyNowForm').submit();
-                }, 300);
-            });
+if (buyNowBtn) {
+    buyNowBtn.addEventListener('click', function() {
+        const quantity = parseInt(document.getElementById('quantity').value);
+        const maxQuantity = parseInt(document.getElementById('quantity').max);
+        const stockStatus = "<?php echo $product['quantity'] > 0 ? 'in_stock' : 'out_of_stock'; ?>";
+        
+        // Check if item is out of stock or quantity exceeds available stock
+        if (stockStatus === 'out_of_stock' || quantity > maxQuantity || maxQuantity <= 0) {
+            // Show error message
+            const errorHtml = `
+                <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill"></i> 
+                    ${stockStatus === 'out_of_stock' ? 
+                      'This product is currently out of stock.' : 
+                      'Requested quantity exceeds available stock.'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Remove any existing alerts
+            const existingAlert = document.querySelector('.alert-danger');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+            
+            // Insert new alert
+            this.insertAdjacentHTML('afterend', errorHtml);
+            
+            // Shake button to indicate error
+            this.classList.add('animate__animated', 'animate__shakeX');
+            setTimeout(() => {
+                this.classList.remove('animate__animated', 'animate__shakeX');
+            }, 1000);
+            
+            return false;
         }
+        
+        // If everything is okay, proceed with purchase
+        document.getElementById('buyNowQuantity').value = quantity;
+        
+        this.classList.add('animate__animated', 'animate__pulse');
+        
+        setTimeout(() => {
+            document.getElementById('buyNowForm').submit();
+        }, 300);
+    });
+}
         
         const productImageCard = document.getElementById('productImageCard');
         if (productImageCard) {

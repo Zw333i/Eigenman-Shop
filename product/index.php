@@ -27,9 +27,14 @@ if (isset($_GET['brand'])) {
     $filterBrand = $_GET['brand'];
 }
 
-$query = "SELECT i.*, m.storeName FROM Item i 
+// Modified query to include ratings
+$query = "SELECT i.*, m.storeName, 
+          (SELECT AVG(o.rating) FROM Orders o WHERE o.itemId = i.itemId AND o.rating IS NOT NULL) as avgRating,
+          (SELECT COUNT(o.rating) FROM Orders o WHERE o.itemId = i.itemId AND o.rating IS NOT NULL) as ratingCount
+          FROM Item i 
           JOIN Merchant m ON i.merchantId = m.merchantId 
           WHERE 1=1";
+          
 $countQuery = "SELECT COUNT(*) as total FROM Item i 
               JOIN Merchant m ON i.merchantId = m.merchantId 
               WHERE 1=1";
@@ -74,6 +79,9 @@ if (!empty($sortOption)) {
             break;
         case 'name_desc':
             $query .= " ORDER BY i.itemName DESC";
+            break;
+        case 'rating_desc':
+            $query .= " ORDER BY avgRating DESC, ratingCount DESC";
             break;
         default:
             $query .= " ORDER BY i.itemId DESC";
@@ -152,6 +160,7 @@ include_once '../includes/header.php';
                         <option value="price_desc" <?php echo ($sortOption === 'price_desc') ? 'selected' : ''; ?>>Price: High to Low</option>
                         <option value="name_asc" <?php echo ($sortOption === 'name_asc') ? 'selected' : ''; ?>>Name: A to Z</option>
                         <option value="name_desc" <?php echo ($sortOption === 'name_desc') ? 'selected' : ''; ?>>Name: Z to A</option>
+                        <option value="rating_desc" <?php echo ($sortOption === 'rating_desc') ? 'selected' : ''; ?>>Best Rated</option>
                     </select>
                 </div>
             </form>
@@ -191,6 +200,32 @@ include_once '../includes/header.php';
                             <div class="card-body">
                                 <h5 class="card-title product-title"><?php echo htmlspecialchars($product['itemName']); ?></h5>
                                 <p class="card-text text-primary fw-bold">₱<?php echo number_format($product['itemPrice'], 2); ?></p>
+                              <!-- Rating Stars - Shows "No reviews" when empty, stars when available -->
+<div class="product-rating" style="min-height: 24px;">
+    <?php if ($product['ratingCount'] > 0): ?>
+        <?php 
+        $rating = round($product['avgRating'] ?? 0, 1);
+        $ratingInt = floor($rating);
+        $hasHalfStar = ($rating - $ratingInt) >= 0.5;
+        $reviewCount = (int)($product['ratingCount'] ?? 0);
+        ?>
+        <div class="stars">
+            <?php for ($i = 1; $i <= 5; $i++): ?>
+                <?php if ($i <= $ratingInt): ?>
+                    <i class="bi bi-star-fill text-warning"></i>
+                <?php elseif ($i == $ratingInt + 1 && $hasHalfStar): ?>
+                    <i class="bi bi-star-half text-warning"></i>
+                <?php else: ?>
+                    <i class="bi bi-star text-warning"></i>
+                <?php endif; ?>
+            <?php endfor; ?>
+            <span class="ms-1 small text-muted"><?php echo $rating; ?></span>
+            <span class="small text-muted">(<?php echo $reviewCount; ?>)</span>
+        </div>
+    <?php else: ?>
+        <div class="text-muted small">‎</div>
+    <?php endif; ?>
+</div>
                                 <p class="card-text small text-muted">
                                     <span class="brand"><?php echo htmlspecialchars($product['brand']); ?></span> • 
                                     <span class="store"><?php echo htmlspecialchars($product['storeName']); ?></span>
@@ -250,6 +285,16 @@ include_once '../includes/header.php';
     
     .product-card:hover {
         transform: translateY(-5px);
+    }
+    
+    .product-rating {
+        margin-bottom: 8px;
+        min-height: 24px; /* Ensures consistent height regardless of content */
+    }
+    
+    .stars {
+        display: flex;
+        align-items: center;
     }
 </style>
 

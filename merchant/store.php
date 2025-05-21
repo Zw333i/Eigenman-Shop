@@ -740,13 +740,5 @@ include_once '../includes/header.php';
 </script>
 
 <?php
-if (isset($_SESSION['userId'])) {
-    $analyticsStmt = $conn->prepare("INSERT INTO Analytics (userId, merchantId, actionType, timestamp) 
-                                     VALUES (?, ?, 'store_view', NOW())");
-    $analyticsStmt->bind_param("ii", $_SESSION['userId'], $merchantId);
-    $analyticsStmt->execute();
-    $analyticsStmt->close();
-}
-
 include_once '../includes/footer.php';
 ?>

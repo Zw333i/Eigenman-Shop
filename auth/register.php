@@ -34,12 +34,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $contactNum = trim($_POST['contactNum'] ?? '');
     $address = trim($_POST['address'] ?? '');
     
-    $profilePicture = null;
-    if (isset($_FILES['profilePicture']) && $_FILES['profilePicture']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = '../uploads/profile_pictures/';
+$profilePicture = null;
+if (isset($_FILES['profilePicture'])) { 
+    if ($_FILES['profilePicture']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = '../assets/images/profiles/';
         
         if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
+            if (!mkdir($uploadDir, 0777, true)) {
+                $errors[] = "Failed to create upload directory";
+            }
+        }
+        
+        if (!is_writable($uploadDir)) {
+            $errors[] = "Upload directory is not writable";
         }
         
         $fileName = time() . '_' . basename($_FILES['profilePicture']['name']);
@@ -51,24 +58,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "File is not an image.";
         }
         
+        // check file size
         if ($_FILES['profilePicture']['size'] > 5000000) {
             $errors[] = "File is too large. Max size is 5MB.";
         }
         
-        // Allow certain file formats
         if (!in_array($imageFileType, ['jpg', 'jpeg', 'png', 'gif'])) {
             $errors[] = "Only JPG, JPEG, PNG & GIF files are allowed.";
         }
         
-        // If no errors, try to upload file
         if (empty($errors)) {
             if (move_uploaded_file($_FILES['profilePicture']['tmp_name'], $targetFile)) {
-                $profilePicture = $fileName;
+                $profilePicture = 'assets/images/profiles/' . $fileName;
+                error_log("Profile picture uploaded to: " . $profilePicture);
             } else {
                 $errors[] = "There was an error uploading your file.";
+                error_log("File upload error: " . $_FILES['profilePicture']['error']);
             }
         }
+    } elseif ($_FILES['profilePicture']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $errors[] = "File upload error: " . $_FILES['profilePicture']['error'];
     }
+}
+
     
     if (empty($username)) {
         $errors[] = "Username is required";

@@ -103,6 +103,16 @@ if (!$orderResult) {
     $error_message = "Database error: " . $conn->error;
 }
 
+// Store the orders in an array for later use in modals
+$orders = [];
+if ($orderResult && $orderResult->num_rows > 0) {
+    while ($order = $orderResult->fetch_assoc()) {
+        $orders[] = $order;
+    }
+    // Reset the result pointer for the main table display
+    $orderResult->data_seek(0);
+}
+
 $pageTitle = "Manage Orders";
 include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
 ?>
@@ -236,7 +246,7 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                 <ul class="pagination mb-0">
                                     <?php if ($page > 1): ?>
                                     <li class="page-item">
-                                        <a class="page-link" href="/e-commerce/merchant/orders.php?filter=<?php echo $filter; ?>&page=<?php echo $page - 1; ?>" aria-label="Previous">
+                                        <a class="page-link" href="/e-commerce/merchant/orders.php?<?php echo $filter !== 'all' ? 'filter='.$filter.'&' : ''; ?>page=<?php echo $page - 1; ?>" aria-label="Previous">
                                             <span aria-hidden="true">&laquo;</span>
                                         </a>
                                     </li>
@@ -244,7 +254,7 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                     
                                     <?php for ($i = 1; $i <= $totalPages; $i++): ?>
                                     <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                                        <a class="page-link" href="/e-commerce/merchant/orders.php?filter=<?php echo $filter; ?>&page=<?php echo $i; ?>">
+                                        <a class="page-link" href="/e-commerce/merchant/orders.php?<?php echo $filter !== 'all' ? 'filter='.$filter.'&' : ''; ?>page=<?php echo $i; ?>">
                                             <?php echo $i; ?>
                                         </a>
                                     </li>
@@ -252,7 +262,7 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
                                     
                                     <?php if ($page < $totalPages): ?>
                                     <li class="page-item">
-                                        <a class="page-link" href="/e-commerce/merchant/orders.php?filter=<?php echo $filter; ?>&page=<?php echo $page + 1; ?>" aria-label="Next">
+                                        <a class="page-link" href="/e-commerce/merchant/orders.php?<?php echo $filter !== 'all' ? 'filter='.$filter.'&' : ''; ?>page=<?php echo $page + 1; ?>" aria-label="Next">
                                             <span aria-hidden="true">&raquo;</span>
                                         </a>
                                     </li>
@@ -292,10 +302,9 @@ include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/header.php';
 
 <!-- Order Details Modals -->
 <?php
-// Reset the result set pointer to the beginning
-if ($orderResult) {
-    $orderResult->data_seek(0);
-    while ($order = $orderResult->fetch_assoc()):
+// Use the stored orders array to generate modals
+if (!empty($orders)):
+    foreach ($orders as $order):
 ?>
 <div class="modal fade" id="orderDetailsModal<?php echo $order['orderId']; ?>" tabindex="-1" 
      aria-labelledby="orderDetailsModalLabel<?php echo $order['orderId']; ?>" aria-hidden="true">
@@ -378,7 +387,7 @@ if ($orderResult) {
                 <div class="row mt-4">
                     <div class="col-12">
                         <h6 class="fw-bold">Update Status</h6>
-                        <form method="POST" action="/e-commerce/merchant/orders.php?filter=<?php echo $filter; ?>&page=<?php echo $page; ?>">
+                        <form method="POST" action="/e-commerce/merchant/orders.php<?php echo $filter !== 'all' ? '?filter='.$filter : ''; ?><?php echo isset($_GET['page']) ? ($filter !== 'all' ? '&' : '?') . 'page='.$_GET['page'] : ''; ?>">
                             <input type="hidden" name="orderId" value="<?php echo $order['orderId']; ?>">
                             <div class="mb-3">
                                 <select name="status" class="form-select" required>
@@ -401,8 +410,8 @@ if ($orderResult) {
     </div>
 </div>
 <?php
-    endwhile;
-}
+    endforeach;
+endif;
 ?>
 
 <style>
@@ -492,6 +501,5 @@ if ($orderResult) {
 </style>
 
 <?php
-// Include footer
 include_once $_SERVER['DOCUMENT_ROOT'] . '/e-commerce/includes/footer.php';
 ?>

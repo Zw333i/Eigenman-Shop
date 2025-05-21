@@ -359,7 +359,6 @@ function generateReceiptPage($order, $user) {
                 Your order will be prepared for shipment shortly.
             </p>
             
-            <!-- Receipt Content Container (This will be used for PDF generation) -->
             <div id="receiptContent" class="animate-fade-in">
                 <div class="receipt-header">
                     <div class="receipt-logo">Eigenman</div>

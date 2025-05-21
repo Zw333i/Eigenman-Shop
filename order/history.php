@@ -125,34 +125,40 @@ include_once '../includes/header.php';
                                 <tbody class="border-0">
                                     <?php foreach ($orders as $order): ?>
                                         <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <div class="flex-shrink-0">
-                                                        <?php if (!empty($order['picture'])): ?>
-                                                            <img src="<?php echo htmlspecialchars($order['picture']); ?>" 
-                                                                 class="img-thumbnail" 
-                                                                 alt="<?php echo htmlspecialchars($order['itemName']); ?>" 
-                                                                 width="80"
-                                                                 onerror="this.onerror=null;this.src='../assets/images/placeholder-product.jpg';">
-                                                        <?php else: ?>
-                                                            <div class="bg-light d-flex align-items-center justify-content-center rounded" style="width: 80px; height: 80px;">
-                                                                <i class="bi bi-image text-muted"></i>
-                                                            </div>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <div class="ms-3">
-                                                        <h6 class="mb-1"><?php echo htmlspecialchars($order['itemName']); ?></h6>
-                                                        <p class="text-muted small mb-0">
-                                                            <span class="me-2">Qty: <?php echo $order['quantity']; ?></span>
-                                                            <span class="me-2">|</span>
-                                                            <span>Store: <?php echo htmlspecialchars($order['storeName']); ?></span>
-                                                        </p>
-                                                        <p class="text-muted small mb-0">
-                                                            <span>Order Date: <?php echo date('d M Y', strtotime($order['orderDate'])); ?></span>
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </td>
+<td>
+    <div class="d-flex align-items-center">
+        <div class="flex-shrink-0">
+            <a href="details.php?id=<?php echo $order['orderId']; ?>">
+                <?php if (!empty($order['picture'])): ?>
+                    <img src="<?php echo htmlspecialchars($order['picture']); ?>" 
+                         class="img-thumbnail" 
+                         alt="<?php echo htmlspecialchars($order['itemName']); ?>" 
+                         width="80"
+                         onerror="this.onerror=null;this.src='../assets/images/placeholder-product.jpg';">
+                <?php else: ?>
+                    <div class="bg-light d-flex align-items-center justify-content-center rounded" style="width: 80px; height: 80px;">
+                        <i class="bi bi-image text-muted"></i>
+                    </div>
+                <?php endif; ?>
+            </a>
+        </div>
+        <div class="ms-3">
+            <h6 class="mb-1">
+                <a href="details.php?id=<?php echo $order['orderId']; ?>" class="text-decoration-none text-dark">
+                    <?php echo htmlspecialchars($order['itemName']); ?>
+                </a>
+            </h6>
+            <p class="text-muted small mb-0">
+                <span class="me-2">Qty: <?php echo $order['quantity']; ?></span>
+                <span class="me-2">|</span>
+                <span>Store: <?php echo htmlspecialchars($order['storeName']); ?></span>
+            </p>
+            <p class="text-muted small mb-0">
+                <span>Order Date: <?php echo date('d M Y', strtotime($order['orderDate'])); ?></span>
+            </p>
+        </div>
+    </div>
+</td>
                                             <td class="fw-medium">
                                                 <?php echo $order['totalPrice']; ?>
                                                 <p class="text-muted small mb-0"><?php echo htmlspecialchars($order['modeOfPayment']); ?></p>
