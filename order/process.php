@@ -1,137 +1,145 @@
 <?php
-
+// process.php - Updated cancel order logic
 session_start();
 require_once '../includes/functions.php';
-requireLogin();
 
-if (!isset($_SESSION['userId'])) {
-    die("User is not logged in. Session 'userId' is not set.");
-}
-
-$user_id = $_SESSION['userId'];
-$conn = getConnection();
-
-// Error Reporting for Debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
-// Get the Order ID
-$order_id = $_POST['order_id'] ?? $_GET['order_id'] ?? null;
-
-if (!$order_id) {
-    die("Order ID is missing.");
-}
-
-echo "Order ID: $order_id<br>";
-echo "User ID: $user_id<br>";
-
-// Check if the request is POST
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-    // ============================
-    // Handle Order Cancellation
-    // ============================
-    if (isset($_POST['action']) && $_POST['action'] == 'cancel_order') {
-        
-        // Verify if the order exists and belongs to the user
-        $stmt = $conn->prepare("
-            SELECT * FROM orders 
-            WHERE orderId = ? AND userId = ? AND toPay IN (0, 1)
-        ");
-        $stmt->bind_param("ii", $order_id, $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            echo "Order Found!<br>";
-
-            // Update the order status to canceled
-            $updateStmt = $conn->prepare("UPDATE orders SET toPay = 0, toShip = 0, toReceive = 0 WHERE orderId = ? AND userId = ?");
-            $updateStmt->bind_param("ii", $order_id, $user_id);
-
-            if ($updateStmt->execute()) {
-                $_SESSION['success_message'] = "Order has been cancelled successfully.";
-            } else {
-                $_SESSION['error_message'] = "Failed to cancel the order. Please try again.";
-            }
-        } else {
-            echo "Order Not Found!<br>";
-            $_SESSION['error_message'] = "Invalid order or order cannot be cancelled at this time.";
-        }
-    }
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
+    $conn = getConnection();
     
-    // ============================
-    // Handle Order Reorder Logic
-    // ============================
-    if (isset($_POST['action']) && $_POST['action'] == 'reorder') {
-        $stmt = $conn->prepare("
-            SELECT * FROM orders 
-            WHERE orderId = ? AND userId = ?
-        ");
-        $stmt->bind_param("ii", $order_id, $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows > 0) {
-            $stmt = $conn->prepare("
-                SELECT oi.itemId, oi.quantity 
-                FROM order_items oi
-                JOIN products p ON oi.itemId = p.itemId
-                WHERE oi.orderId = ? AND p.active = 1
-            ");
-            $stmt->bind_param("i", $order_id);
+    if ($_POST['action'] == 'cancel_order') {
+        $order_id = $_POST['order_id'];
+        $user_id = $_SESSION['userId'];
+        
+        // Validate inputs
+        if (!is_numeric($order_id) || !is_numeric($user_id)) {
+            $_SESSION['error_message'] = "Invalid order or user ID.";
+            header("Location: history.php");
+            exit;
+        }
+        
+        // Start transaction to ensure data consistency
+        $conn->begin_transaction();
+        
+        try {
+            // First, get the order details to retrieve quantity and item info
+            // Also check if order can be cancelled (only toPay or toShip orders)
+            $stmt = $conn->prepare("SELECT itemId, quantity, toPay, toShip FROM Orders WHERE orderId = ? AND userId = ?");
+            $stmt->bind_param("ii", $order_id, $user_id);
             $stmt->execute();
             $result = $stmt->get_result();
-
-            $success = false;
-
-            // Add items to the cart
-            while ($item = $result->fetch_assoc()) {
-                $stmt = $conn->prepare("
-                    SELECT * FROM cart 
-                    WHERE userId = ? AND itemId = ?
-                ");
-                $stmt->bind_param("ii", $user_id, $item['itemId']);
-                $stmt->execute();
-                $cart_result = $stmt->get_result();
-                
-                if ($cart_result->num_rows > 0) {
-                    $cart_item = $cart_result->fetch_assoc();
-                    $new_quantity = $cart_item['quantity'] + $item['quantity'];
-
-                    $stmt = $conn->prepare("
-                        UPDATE cart 
-                        SET quantity = ? 
-                        WHERE cartId = ?
-                    ");
-                    $stmt->bind_param("ii", $new_quantity, $cart_item['cartId']);
-                    $stmt->execute();
-                } else {
-                    $stmt = $conn->prepare("
-                        INSERT INTO cart (userId, itemId, quantity) 
-                        VALUES (?, ?, ?)
-                    ");
-                    $stmt->bind_param("iii", $user_id, $item['itemId'], $item['quantity']);
-                    $stmt->execute();
-                }
-                
-                $success = true;
+            
+            if ($result->num_rows === 0) {
+                throw new Exception("Order not found or unauthorized access");
             }
-
-            if ($success) {
-                $_SESSION['success_message'] = "Items have been added to your cart.";
-                header("Location: ../cart/view.php");
-                exit;
-            } else {
-                $_SESSION['error_message'] = "No items could be added to your cart. Products may no longer be available.";
+            
+            $order = $result->fetch_assoc();
+            
+            // Check if order can be cancelled (only if toPay or toShip is true)
+            if (!$order['toPay'] && !$order['toShip']) {
+                throw new Exception("Order cannot be cancelled at this stage");
             }
-        } else {
-            $_SESSION['error_message'] = "Invalid order.";
+            
+            $item_id = $order['itemId'];
+            $cancelled_quantity = $order['quantity'];
+            
+            // Return the quantity back to the item stock
+            $stmt = $conn->prepare("UPDATE Item SET quantity = quantity + ? WHERE itemId = ?");
+            $stmt->bind_param("ii", $cancelled_quantity, $item_id);
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to restore item quantity");
+            }
+            
+            // Verify that the update actually happened
+            if ($stmt->affected_rows === 0) {
+                throw new Exception("No item found to restore quantity");
+            }
+            
+            // Delete the order
+            $stmt = $conn->prepare("DELETE FROM Orders WHERE orderId = ? AND userId = ?");
+            $stmt->bind_param("ii", $order_id, $user_id);
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to cancel order");
+            }
+            
+            // Verify that the order was actually deleted
+            if ($stmt->affected_rows === 0) {
+                throw new Exception("Order not found for deletion");
+            }
+            
+            // Commit the transaction
+            $conn->commit();
+            
+            // Set success message
+            $_SESSION['success_message'] = "Order #$order_id cancelled successfully. Item quantity has been restored.";
+            
+        } catch (Exception $e) {
+            // Rollback the transaction on error
+            $conn->rollback();
+            $_SESSION['error_message'] = "Error cancelling order: " . $e->getMessage();
         }
+        
+        // Redirect back to order history
+        header("Location: history.php");
+        exit;
+    }
+    
+    // Handle other actions here if needed
+    // For example: process_payment, update_order, etc.
+    else {
+        $_SESSION['error_message'] = "Invalid action specified.";
+        header("Location: history.php");
+        exit;
     }
 }
 
-// Redirect back to the order history page
-header("Location: history.php");
-exit;
+// If not a POST request, redirect to history
+else {
+    header("Location: history.php");
+    exit;
+}
+
+// wag na to hirap paganahin
+/*
+function cancelOrderWithStatus($conn, $order_id, $user_id) {
+    $conn->begin_transaction();
+    
+    try {
+        // Get order details - only if not already cancelled
+        $stmt = $conn->prepare("SELECT itemId, quantity, toPay, toShip FROM Orders WHERE orderId = ? AND userId = ? AND cancelled IS NULL");
+        $stmt->bind_param("ii", $order_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            throw new Exception("Order not found or already cancelled");
+        }
+        
+        $order = $result->fetch_assoc();
+        
+        // Check if order can be cancelled
+        if (!$order['toPay'] && !$order['toShip']) {
+            throw new Exception("Order cannot be cancelled at this stage");
+        }
+        
+        // Restore quantity to item
+        $stmt = $conn->prepare("UPDATE Item SET quantity = quantity + ? WHERE itemId = ?");
+        $stmt->bind_param("ii", $order['quantity'], $order['itemId']);
+        $stmt->execute();
+        
+        // Mark order as cancelled
+        $stmt = $conn->prepare("UPDATE Orders SET cancelled = NOW() WHERE orderId = ? AND userId = ?");
+        $stmt->bind_param("ii", $order_id, $user_id);
+        $stmt->execute();
+        
+        $conn->commit();
+        return true;
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        throw $e;
+    }
+}
+*/
 ?>

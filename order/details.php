@@ -352,12 +352,6 @@ include_once '../includes/header.php';
                             <i class="bi bi-arrow-left me-1"></i> Back to Order History
                         </a>
                         
-                        <?php if ($order['toReceive']): ?>
-                        <a href="receive.php" class="btn btn-outline-primary">
-                            <i class=></i> Confirm Receipt
-                        </a>
-                        <?php endif; ?>
-                        
                         <?php if ($order['toRate']): ?>
                         <a href="rate.php?id=<?php echo $order['orderId']; ?>" class="btn btn-primary">
                             <i class="bi bi-star me-1"></i> Rate Product
