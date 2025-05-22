@@ -16,7 +16,7 @@ if (ini_get("session.use_cookies")) {
         $params["secure"], $params["httponly"]
     );
 }
-
+setcookie("user_id", "", time() - 3600, "/");
 session_destroy();
 
 session_start();

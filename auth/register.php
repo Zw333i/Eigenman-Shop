@@ -19,7 +19,23 @@ $sex = "";
 $birthday = "";
 $contactNum = "";
 $address = "";
+$securityQuestion = "";
+$securityAnswer = "";
 $errors = [];
+
+// Predefined security questions
+$securityQuestions = [
+    "What is your mother's maiden name?",
+    "What was the name of your first pet?",
+    "What city were you born in?",
+    "What is your favorite color?",
+    "What was the name of your elementary school?",
+    "What is your favorite food?",
+    "What was your childhood nickname?",
+    "What is the name of your best friend?",
+    "What was the first car you owned?",
+    "What is your favorite movie?"
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get form data
@@ -33,6 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $birthday = trim($_POST['birthday'] ?? '');
     $contactNum = trim($_POST['contactNum'] ?? '');
     $address = trim($_POST['address'] ?? '');
+    $securityQuestion = trim($_POST['securityQuestion'] ?? '');
+    $securityAnswer = trim($_POST['securityAnswer'] ?? '');
     
 $profilePicture = null;
 if (isset($_FILES['profilePicture'])) { 
@@ -131,17 +149,31 @@ if (isset($_FILES['profilePicture'])) {
         $errors[] = "Address is required";
     }
     
+    // Validate security question and answer
+    if (empty($securityQuestion)) {
+        $errors[] = "Security question is required";
+    } elseif (!in_array($securityQuestion, $securityQuestions)) {
+        $errors[] = "Please select a valid security question";
+    }
+    
+    if (empty($securityAnswer)) {
+        $errors[] = "Security answer is required";
+    } elseif (strlen(trim($securityAnswer)) < 3) {
+        $errors[] = "Security answer must be at least 3 characters long";
+    }
+    
     if (empty($errors)) {
-        // Hash password
+        // Hash password and security answer
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $hashedSecurityAnswer = password_hash(strtolower(trim($securityAnswer)), PASSWORD_DEFAULT);
         
         $followers = ($role === 'merchant') ? 0 : NULL;
         $following = ($role === 'customer') ? 0 : NULL;
         $userActivities = "Account created on " . date("m/d/Y H:i:s");
         $dateCreated = date("Y-m-d H:i:s");
         
-        $stmt = $conn->prepare("INSERT INTO User (username, password, role, firstname, lastname, sex, birthday, contactNum, address, followers, following, dateCreated, userActivities, profilePicture) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("ssssssssssssss", $username, $hashedPassword, $role, $firstname, $lastname, $sex, $birthday, $contactNum, $address, $followers, $following, $dateCreated, $userActivities, $profilePicture);
+        $stmt = $conn->prepare("INSERT INTO User (username, password, role, firstname, lastname, sex, birthday, contactNum, address, followers, following, dateCreated, userActivities, profilePicture, securityQuestion, securityAnswer) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssssssssssssss", $username, $hashedPassword, $role, $firstname, $lastname, $sex, $birthday, $contactNum, $address, $followers, $following, $dateCreated, $userActivities, $profilePicture, $securityQuestion, $hashedSecurityAnswer);
         
         if ($stmt->execute()) {
             $userId = $stmt->insert_id;
@@ -281,6 +313,39 @@ include_once '../includes/header.php';
                                 </span>
                             </div>
                         </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3 mt-4 text-dark-blue">Security Information</h5>
+                    
+                    <!-- Security Question -->
+                    <div class="mb-3">
+                        <label for="securityQuestion" class="form-label">Security Question <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-question-circle text-primary"></i>
+                            </span>
+                            <select class="form-control" id="securityQuestion" name="securityQuestion" required>
+                                <option value="">Choose a security question...</option>
+                                <?php foreach ($securityQuestions as $question): ?>
+                                    <option value="<?php echo htmlspecialchars($question); ?>" <?php echo ($securityQuestion === $question) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($question); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-text">This will be used to verify your identity if you forget your password</div>
+                    </div>
+                    
+                    <!-- Security Answer -->
+                    <div class="mb-4">
+                        <label for="securityAnswer" class="form-label">Security Answer <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white">
+                                <i class="fas fa-key text-primary"></i>
+                            </span>
+                            <input type="text" class="form-control" id="securityAnswer" name="securityAnswer" value="<?php echo htmlspecialchars($securityAnswer); ?>" placeholder="Enter your answer" required>
+                        </div>
+                        <div class="form-text">Remember this answer - it's case insensitive but must be exact</div>
                     </div>
                     
                     <h5 class="border-bottom pb-2 mb-3 mt-4 text-dark-blue">Personal Information</h5>

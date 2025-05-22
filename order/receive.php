@@ -28,6 +28,7 @@ $order = $result->fetch_assoc();
 
 $stmt = $conn->prepare("
     SELECT o.orderId, o.orderDate, o.totalPrice, o.quantity, o.modeOfPayment, o.address,
+           o.toPay, o.toShip, o.toReceive, o.toRate, o.eta, o.paymentDate,
            i.itemName, i.itemPrice, i.picture, m.storeName, 
            mu.address as storeAddress,
            u.firstname, u.lastname, u.contactNum
@@ -51,6 +52,23 @@ if (!$orderDetails) {
 // Format prices for display
 $orderDetails['totalPrice'] = '₱' . number_format($orderDetails['totalPrice'], 2);
 $orderDetails['itemPrice'] = '₱' . number_format($orderDetails['itemPrice'], 2);
+
+// Determine delivery status
+function getDeliveryStatus($orderDetails) {
+    if ($orderDetails['toPay']) {
+        return ['status' => 'Payment Pending', 'color' => '#e74c3c', 'icon' => '⏳'];
+    } elseif ($orderDetails['toShip']) {
+        return ['status' => 'Ready to Ship', 'color' => '#f39c12', 'icon' => '📦'];
+    } elseif ($orderDetails['toReceive']) {
+        return ['status' => 'Out for Delivery', 'color' => '#3498db', 'icon' => '🚚'];
+    } elseif ($orderDetails['toRate']) {
+        return ['status' => 'Delivered - Pending Review', 'color' => '#27ae60', 'icon' => '✅'];
+    } else {
+        return ['status' => 'Order Completed', 'color' => '#2c3e50', 'icon' => '🏆'];
+    }
+}
+
+$deliveryStatus = getDeliveryStatus($orderDetails);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_receipt'])) {
@@ -77,12 +95,12 @@ include_once '../includes/header.php';
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white py-3">
-                    <h5 class="mb-0">Confirm Order Receipt</h5>
+                    <h5 class="mb-0">Order Confirmation Receipt</h5>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
-                        Please confirm that you have received your order. A receipt will be generated and downloaded automatically.
+                        You can download the receipt! Have a nice day! :)
                     </div>
                     
                     <div id="receiptContent" style="display: none; background: white; padding: 30px; font-family: Arial, sans-serif;">
@@ -103,12 +121,33 @@ include_once '../includes/header.php';
                             
                             <div style="margin-bottom: 15px;">
                                 <strong>Customer:</strong> <?php echo htmlspecialchars($orderDetails['firstname'] . ' ' . $orderDetails['lastname']); ?><br>
+                                <strong>Contact:</strong> <?php echo htmlspecialchars($orderDetails['contactNum']); ?><br>
                                 <strong>Delivery Address:</strong> <?php echo htmlspecialchars($orderDetails['address']); ?>
                             </div>
                             
-                            <div>
+                            <div style="margin-bottom: 15px;">
                                 <strong>Store:</strong> <?php echo htmlspecialchars($orderDetails['storeName']); ?><br>
                                 <strong>Store Address:</strong> <?php echo htmlspecialchars($orderDetails['storeAddress'] ?? 'N/A'); ?>
+                            </div>
+                            
+                            <!-- Delivery Status Section -->
+                            <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+                                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-size: 20px; margin-right: 10px;"><?php echo $deliveryStatus['icon']; ?></span>
+                                    <strong style="color: <?php echo $deliveryStatus['color']; ?>; font-size: 16px;">
+                                        Delivery Status: <?php echo $deliveryStatus['status']; ?>
+                                    </strong>
+                                </div>
+                                <?php if ($orderDetails['paymentDate']): ?>
+                                <div style="margin-bottom: 5px;">
+                                    <strong>Payment Date:</strong> <?php echo date('d M Y, g:i A', strtotime($orderDetails['paymentDate'])); ?>
+                                </div>
+                                <?php endif; ?>
+                                <?php if ($orderDetails['eta']): ?>
+                                <div>
+                                    <strong>Estimated Delivery:</strong> <?php echo date('d M Y, g:i A', strtotime($orderDetails['eta'])); ?>
+                                </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                         
@@ -171,6 +210,42 @@ include_once '../includes/header.php';
                             <p><strong>Total Amount:</strong> <?php echo $orderDetails['totalPrice']; ?></p>
                             <p><strong>Payment Method:</strong> <?php echo htmlspecialchars($orderDetails['modeOfPayment']); ?></p>
                             <p><strong>Delivery Address:</strong> <?php echo htmlspecialchars($orderDetails['address']); ?></p>
+                            <p><strong>Delivery Status:</strong> 
+                                <span style="color: <?php echo $deliveryStatus['color']; ?>; font-weight: bold;">
+                                    <?php echo $deliveryStatus['icon'] . ' ' . $deliveryStatus['status']; ?>
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Delivery Timeline (Optional Enhancement) -->
+                    <div class="mt-4">
+                        <h6>Order Timeline</h6>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="badge bg-success me-2">✓</div>
+                                    <span>Order Placed - <?php echo date('d M Y, g:i A', strtotime($orderDetails['orderDate'])); ?></span>
+                                </div>
+                                <?php if (!$orderDetails['toPay'] && $orderDetails['paymentDate']): ?>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="badge bg-success me-2">✓</div>
+                                    <span>Payment Confirmed - <?php echo date('d M Y, g:i A', strtotime($orderDetails['paymentDate'])); ?></span>
+                                </div>
+                                <?php endif; ?>
+                                <?php if (!$orderDetails['toShip']): ?>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="badge bg-success me-2">✓</div>
+                                    <span>Order Shipped</span>
+                                </div>
+                                <?php endif; ?>
+                                <?php if (!$orderDetails['toReceive']): ?>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="badge bg-success me-2">✓</div>
+                                    <span>Order Delivered</span>
+                                </div>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
                     
@@ -180,7 +255,7 @@ include_once '../includes/header.php';
                                 <i class="bi bi-arrow-left me-1"></i> Back to Orders
                             </a>
                             <button type="submit" name="confirm_receipt" class="btn btn-success" id="confirmReceiptBtn">
-                                <i class="bi bi-check-circle me-1"></i> Confirm Receipt & Download PDF
+                                <i class="bi bi-check-circle me-1"></i> Download PDF
                             </button>
                         </div>
                     </form>
@@ -328,7 +403,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 
-                // Save the PDF
                 pdf.save('order-receipt-<?php echo $orderId; ?>-' + dateStr + '.pdf');
             }
         });

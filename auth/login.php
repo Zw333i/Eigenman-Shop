@@ -1,8 +1,34 @@
 <?php
 // auth/login.php
+
+
 if (session_status() === PHP_SESSION_NONE) {
+    
     session_start();
+    
+    
 }
+
+require_once '../config/database.php';
+
+if (isset($_COOKIE['user_id']) && !isset($_SESSION['userId'])) {
+    $user_id = $_COOKIE['user_id'];
+    $stmt = $conn->prepare("SELECT userId, username, role, firstname FROM User WHERE userId = ?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+        $_SESSION['userId'] = $user['userId'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['role'] = $user['role'];
+        $_SESSION['firstname'] = $user['firstname'];
+        redirectBasedOnRole($user['role']);
+        exit();
+    }
+}
+
 
 if (isset($_SESSION['userId'])) {
     redirectBasedOnRole($_SESSION['role']);
@@ -10,7 +36,7 @@ if (isset($_SESSION['userId'])) {
 }
 
 require_once '../includes/functions.php';
-require_once '../config/database.php';
+
 
 $username = "";
 $errors = [];
@@ -41,6 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['firstname'] = $user['firstname'];
+                setcookie("user_id", $user['userId'], time() + (30 * 24 * 60 * 60), "/");
+
                 
                 $profileQuery = $conn->prepare("SELECT profilePicture FROM User WHERE userId = ?");
                 $profileQuery->bind_param("i", $user['userId']);
@@ -128,7 +156,7 @@ include_once '../includes/header.php';
                     <div class="mb-4">
                         <div class="d-flex justify-content-between">
                             <label for="password" class="form-label">Password</label>
-                            <a href="#" class="text-primary small">Forgot Password?</a>
+                            <a href="forgot-password.php" class="text-primary small">Forgot Password?</a>
                         </div>
                         <div class="input-group">
                             <span class="input-group-text bg-white">
@@ -142,10 +170,8 @@ include_once '../includes/header.php';
                     </div>
                     
                     <div class="mb-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="remember" name="remember">
-                            <label class="form-check-label" for="remember">Remember me</label>
-                        </div>
+                          
+                    
                     </div>
                     
                     <div class="d-grid gap-2 mb-4">
